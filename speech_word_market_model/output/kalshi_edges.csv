@@ -1,0 +1,6 @@
+word,model_probability,market_probability,edge,flagged
+border,0.45,0.58,-0.13,False
+china,0.45,0.62,-0.17,False
+tariff,0.0,0.45,-0.45,False
+immigration,0.45,0.55,-0.1,False
+economy,0.45,0.7,-0.25,False

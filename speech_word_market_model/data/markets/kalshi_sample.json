@@ -1,0 +1,22 @@
+[
+  {
+    "contract_name": "Will Trump say 'border' in his next major speech?",
+    "market_probability": 0.58
+  },
+  {
+    "contract_name": "Will Trump say 'china' in his next major speech?",
+    "market_probability": 0.62
+  },
+  {
+    "contract_name": "Will Trump say 'tariff' in his next major speech?",
+    "market_probability": 0.45
+  },
+  {
+    "contract_name": "Will Trump say 'immigration' in his next major speech?",
+    "market_probability": 0.55
+  },
+  {
+    "contract_name": "Will Trump say 'economy' in his next major speech?",
+    "market_probability": 0.70
+  }
+]

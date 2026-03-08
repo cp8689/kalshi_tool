@@ -1,0 +1,11 @@
+word,week1,week2,week3,week4,model_probability,model_probability_baseline
+border,0.0,1.0,1.0,0.0,0.45,0.5
+china,0.0,1.0,1.0,0.0,0.45,0.5
+tariff,0.0,0.0,0.0,0.0,0.0,0.0
+immigration,0.0,1.0,1.0,0.0,0.45,0.5
+crime,0.0,1.0,1.0,0.0,0.45,0.5
+economy,0.0,1.0,1.0,0.0,0.45,0.5
+inflation,0.0,1.0,1.0,0.0,0.45,0.5
+energy,0.0,1.0,1.0,0.0,0.45,0.5
+biden,0.0,0.0,1.0,0.0,0.27,0.3
+military,0.0,1.0,1.0,0.0,0.45,0.5
