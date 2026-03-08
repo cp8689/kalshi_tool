@@ -12,8 +12,9 @@ Estimate **P(word appears in next speech)** using rolling 4-week transcript stat
 
 ## Quick start
 
+Run from the **repo root** (this directory):
+
 ```bash
-cd speech_word_market_model
 pip install -r requirements.txt
 python -c "import nltk; nltk.download('stopwords')"   # once
 python main.py
@@ -27,21 +28,22 @@ The repo includes sample transcripts, news, and Kalshi market data so the pipeli
 ## Project structure
 
 ```
-speech_word_market_model/
-├── config.json              # Tracked words, weights, multipliers (see Configuration)
-├── main.py                  # CLI: run pipeline or launch dashboard
+kalshi_tool/                    # repo root
+├── config.json                 # Tracked words, weights, multipliers (see Configuration)
+├── main.py                     # CLI: run pipeline or launch dashboard
 ├── requirements.txt
 ├── README.md
+├── .gitignore
 ├── data/
-│   ├── transcripts/         # Input .txt / .json; output: processed_transcripts.json
-│   ├── news/                # Input .json; output: processed_news.json
-│   └── markets/             # Input .json or .csv (Kalshi contracts)
+│   ├── transcripts/            # Input .txt / .json; output: processed_transcripts.json
+│   ├── news/                   # Input .json; output: processed_news.json
+│   └── markets/                # Input .json or .csv (Kalshi contracts)
 ├── output/
 │   ├── word_probabilities.csv
 │   └── kalshi_edges.csv
 └── scripts/
     ├── ingest_transcripts.py   # Module 1: load & tokenize transcripts
-    ├── ingest_news.py           # Module 5 (ingest): load news
+    ├── ingest_news.py          # Module 5 (ingest): load news
     ├── tokenizer.py            # Module 2: lowercase, strip punctuation, stopwords
     ├── weekly_stats.py         # Module 3: 4-week P(word | week)
     ├── probability_model.py    # Module 4: recency-weighted baseline
@@ -58,52 +60,25 @@ speech_word_market_model/
 
 ---
 
-## Pipeline (how it runs)
-
-When you run `python main.py`, the pipeline:
-
-1. **Ingest transcripts** — Read `data/transcripts/`, parse date from filenames, tokenize, write `processed_transcripts.json`.
-2. **Weekly stats** — Bucket speeches into last 4 weeks; compute P(word | week) = speeches_containing_word / total_speeches per week.
-3. **Baseline model** — P_final = 0.4×week4 + 0.3×week3 + 0.2×week2 + 0.1×week1 (configurable weights).
-4. **Ingest news** — Read `data/news/`, write `processed_news.json`.
-5. **Narrative adjustment** — Count tracked-word mentions in last 48h; apply multiplier (0.9 / 1.1 / 1.4 / 1.8); P_adjusted = min(0.95, P_final × multiplier).
-6. **Ingest Kalshi** — Parse `data/markets/`, extract word and market probability from contract names.
-7. **Edge detection** — edge = model_probability − market_probability; flag when edge > 0.10.
-8. **Export** — Write `output/word_probabilities.csv` and `output/kalshi_edges.csv`.
-
-### Modules at a glance
-
-| Module | Role |
-|--------|------|
-| `ingest_transcripts.py` | Read transcripts (manual + optional YouTube), parse date from filename, tokenize, save JSON. |
-| `tokenizer.py` | Lowercase, remove punctuation and stopwords, return token list (no I/O). |
-| `weekly_stats.py` | Bucket transcripts into 4 rolling weeks; P(word \| week) = speeches_with_word / total_speeches. |
-| `probability_model.py` | Recency-weighted baseline: P_final = w1×week1 + … + w4×week4. |
-| `ingest_news.py` | Read news from `data/news/`, write `processed_news.json`. |
-| `narrative_model.py` | Count word mentions in last 48h news, apply multiplier, P_adjusted = min(0.95, P_final × multiplier). |
-| `kalshi_parser.py` | Parse Kalshi JSON/CSV; extract word from contract name; output word + market_probability. |
-| `edge_detector.py` | edge = model_probability − market_probability; flag when edge > threshold. |
-| `scheduler.py` | `run_pipeline(config_path, base_dir)` runs all steps and writes CSVs. |
-| `dashboard.py` | Streamlit: top edges, probability distribution, weekly trends. |
-
----
-
 ## Install
 
+From the **repo root**:
+
 ```bash
-cd speech_word_market_model
 pip install -r requirements.txt
 ```
 
 If you use NLTK stopwords (default), download them once:
 
-```python
+```bash
 python -c "import nltk; nltk.download('stopwords')"
 ```
 
+---
+
 ## Configuration
 
-Edit **`config.json`** at the project root.
+Edit **`config.json`** at the repo root.
 
 | Key | Description |
 |-----|-------------|
@@ -150,39 +125,66 @@ Edit **`config.json`** at the project root.
 
 Then: **P_adjusted = min(0.95, P_final × multiplier)**.
 
-## Adding transcripts
+---
 
-1. **Manual files**: Put transcript text files in **`data/transcripts/`** with names like:
-   - `YYYY-MM-DD_source.txt` (e.g. `2025-02-15_rally.txt`)
-   The date prefix is required; the rest is used as the source label.
+## Pipeline (how it runs)
+
+When you run `python main.py` from the repo root:
+
+1. **Ingest transcripts** — Read `data/transcripts/`, parse date from filenames, tokenize, write `processed_transcripts.json`.
+2. **Weekly stats** — Bucket speeches into last 4 weeks; compute P(word | week) = speeches_containing_word / total_speeches per week.
+3. **Baseline model** — P_final = 0.4×week4 + 0.3×week3 + 0.2×week2 + 0.1×week1 (configurable weights).
+4. **Ingest news** — Read `data/news/`, write `processed_news.json`.
+5. **Narrative adjustment** — Count tracked-word mentions in last 48h; apply multiplier (0.9 / 1.1 / 1.4 / 1.8); P_adjusted = min(0.95, P_final × multiplier).
+6. **Ingest Kalshi** — Parse `data/markets/`, extract word and market probability from contract names.
+7. **Edge detection** — edge = model_probability − market_probability; flag when edge > 0.10.
+8. **Export** — Write `output/word_probabilities.csv` and `output/kalshi_edges.csv`.
+
+### Modules at a glance
+
+| Module | Role |
+|--------|------|
+| `ingest_transcripts.py` | Read transcripts (manual + optional YouTube), parse date from filename, tokenize, save JSON. |
+| `tokenizer.py` | Lowercase, remove punctuation and stopwords, return token list (no I/O). |
+| `weekly_stats.py` | Bucket transcripts into 4 rolling weeks; P(word \| week) = speeches_with_word / total_speeches. |
+| `probability_model.py` | Recency-weighted baseline: P_final = w1×week1 + … + w4×week4. |
+| `ingest_news.py` | Read news from `data/news/`, write `processed_news.json`. |
+| `narrative_model.py` | Count word mentions in last 48h news, apply multiplier, P_adjusted = min(0.95, P_final × multiplier). |
+| `kalshi_parser.py` | Parse Kalshi JSON/CSV; extract word from contract name; output word + market_probability. |
+| `edge_detector.py` | edge = model_probability − market_probability; flag when edge > threshold. |
+| `scheduler.py` | `run_pipeline(config_path, base_dir)` runs all steps and writes CSVs. |
+| `dashboard.py` | Streamlit: top edges, probability distribution, weekly trends. |
+
+---
+
+## Data inputs
+
+### Adding transcripts
+
+1. **Manual files**: Put transcript text files in **`data/transcripts/`** with names like `YYYY-MM-DD_source.txt` (e.g. `2025-02-15_rally.txt`). The date prefix is required; the rest is the source label.
 2. **JSON**: You can also add JSON files with `date`, `text`, and optional `source`/`body`.
-3. **YouTube**: For caption-based ingestion, save captions as text or JSON in the same folder with a date in the filename, or use a separate script (e.g. yt-dlp) and drop the result into `data/transcripts/`.
+3. **YouTube**: Save captions as text or JSON in the same folder with a date in the filename, or use a script (e.g. yt-dlp) and drop the result into `data/transcripts/`.
 
-After adding files, run the pipeline; it will regenerate **`data/transcripts/processed_transcripts.json`**.
+After adding files, run the pipeline; it regenerates **`data/transcripts/processed_transcripts.json`**.
 
-## Adding news
+### Adding news
 
-Put news items in **`data/news/`** as JSON with:
+Put news items in **`data/news/`** as JSON with `date` (`YYYY-MM-DD`) and `text` (or `body`/`content`). The narrative model uses only items from the **last 48 hours** (by date).
 
-- `date`: `YYYY-MM-DD`
-- `text` or `body` or `content`: full text
-
-The narrative model uses only items from the **last 48 hours** (by date) to count mentions and apply multipliers.
-
-## Adding Kalshi market data
+### Adding Kalshi market data
 
 Put Kalshi data in **`data/markets/`** as JSON or CSV.
 
-- **JSON**: Array of objects, or object with `"markets"` array. Each object should have:
-  - `contract_name` or `title` or `name` (e.g. "Will Trump say 'border'?")
-  - `market_probability` or `last_price` or `yes_bid` (0–1)
+- **JSON**: Array of objects, or object with `"markets"` array. Each object: `contract_name` (or `title`/`name`) and `market_probability` (or `last_price`/`yes_bid`, 0–1).
 - **CSV**: Columns `contract_name` (or `title`/`name`) and `market_probability` (or `last_price`/`yes_bid`).
 
-The parser matches **tracked words** in the contract title (including quoted words) to attach a market probability to each word.
+The parser matches **tracked words** in the contract title (including quoted words).
+
+---
 
 ## CLI reference
 
-Run from the **`speech_word_market_model`** directory.
+Run all commands from the **repo root**.
 
 | Command | Description |
 |---------|-------------|
@@ -191,55 +193,15 @@ Run from the **`speech_word_market_model`** directory.
 | `python main.py --dashboard` | Launch the Streamlit dashboard (blocks until you stop it). |
 | `python main.py --config /path/to/config.json` | Use a custom config file. |
 
-Alternative for the dashboard:
+Dashboard alternative:
 
 ```bash
 streamlit run scripts/dashboard.py
 ```
 
-## Running the model
+The app reads **`output/`** in the repo root.
 
-```bash
-python main.py
-```
-
-This will:
-
-1. Ingest transcripts and write `data/transcripts/processed_transcripts.json`
-2. Ingest news and write `data/news/processed_news.json`
-3. Compute 4-week rolling P(word | week) and recency-weighted baseline
-4. Apply narrative multipliers from recent news
-5. Ingest Kalshi markets from `data/markets/`
-6. Compute edges (model prob − market prob) and flag edges > threshold
-7. Write **`output/word_probabilities.csv`** and **`output/kalshi_edges.csv`**
-
-## Viewing the dashboard
-
-```bash
-python main.py --dashboard
-```
-
-Or:
-
-```bash
-streamlit run scripts/dashboard.py
-```
-
-Run from the **`speech_word_market_model`** directory so the app finds **`output/`**.
-
-The dashboard shows:
-
-- **Top edges**: Words sorted by edge (model − market)
-- **Flagged opportunities**: Edges above the configured threshold (e.g. 10%)
-- **Word probability distribution**: Bar chart of model probabilities
-- **Weekly trends**: Line chart of P(word | week) for each of the last 4 weeks
-
-## How edge detection works
-
-- **Model probability**: Recency-weighted average of P(word | week) over the last 4 weeks, then multiplied by a narrative factor (0.9–1.8) based on how often the word appeared in news in the last 48 hours. Capped at 0.95.
-- **Market probability**: Taken from Kalshi contract data (e.g. last price or yes bid).
-- **Edge** = model probability − market probability. Positive edge means the model thinks the word is more likely to appear than the market implies.
-- **Flagged**: Contracts where edge > `edge_threshold` (default 0.10) are highlighted as potential opportunities.
+---
 
 ## Output files
 
@@ -269,25 +231,42 @@ Written to **`output/`** after each pipeline run.
 
 **Edge percentage:** `edge_pct = edge × 100`. Example: edge +0.17 → +17% edge.
 
-## Data folder layout
+---
 
+## Dashboard
+
+```bash
+python main.py --dashboard
 ```
-data/
-  transcripts/     # Input .txt / .json; output processed_transcripts.json
-  news/            # Input .json (date + text); output processed_news.json
-  markets/         # Input .json or .csv (Kalshi-style)
-output/
-  word_probabilities.csv
-  kalshi_edges.csv
+
+or
+
+```bash
+streamlit run scripts/dashboard.py
 ```
+
+Shows: **top edges** (sorted by edge), **flagged opportunities** (edge > threshold), **word probability distribution** (bar chart), **weekly trends** (line chart for week1–week4).
+
+---
+
+## How edge detection works
+
+- **Model probability**: Recency-weighted average of P(word | week) over the last 4 weeks, then multiplied by a narrative factor (0.9–1.8) from news mentions in the last 48 hours. Capped at 0.95.
+- **Market probability**: From Kalshi contract data (e.g. last price or yes bid).
+- **Edge** = model probability − market probability. Positive edge = model thinks the word is more likely than the market.
+- **Flagged**: Contracts where edge > `edge_threshold` (default 0.10) are highlighted as potential opportunities.
+
+---
 
 ## Scheduling (daily run)
 
-Use cron or launchd. Example (run at 9:00 daily):
+Example cron (run at 9:00 daily from repo root):
 
 ```bash
-0 9 * * * cd /path/to/speech_word_market_model && python main.py
+0 9 * * * cd /path/to/kalshi_tool && python main.py
 ```
+
+---
 
 ## Dependencies
 
@@ -302,14 +281,16 @@ From **`requirements.txt`**:
 
 Install: `pip install -r requirements.txt`
 
+---
+
 ## Bonus / future features
 
 The codebase is structured to support:
 
-- **Real-time speech transcription**: Ingest script can be extended to accept a live transcript path or callback.
+- **Real-time speech transcription**: Ingest script can accept a live transcript path or callback.
 - **Speech length prediction**: Optional metadata (word count / duration) and a separate model stub.
 - **Topic modeling**: Stub for a module that consumes token lists and outputs topic weights.
-- **Multi-speaker models**: Config can include `speaker_id` or filter by source; weekly stats and probability model can be filtered by speaker.
+- **Multi-speaker models**: Config can include `speaker_id` or filter by source.
 - **Trading alerts**: Stub for reading `kalshi_edges.csv` and sending email/webhook when edge exceeds a threshold.
 
 See **`scripts/schemas.py`** for data contracts and extension points.
