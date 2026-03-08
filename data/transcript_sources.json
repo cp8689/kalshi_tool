@@ -1,0 +1,21 @@
+{
+  "description": "Sources for transcripts that match Kalshi's 'major speech' / State of the Union style markets. Add youtube_url or transcript_url with date and source.",
+  "whitehouse_briefings": {
+    "url": "https://www.whitehouse.gov/briefings-statements/",
+    "max_items": 25
+  },
+  "sources": [
+    {
+      "date": "2026-02-24",
+      "source": "sotu_2026",
+      "youtube_url": "https://www.youtube.com/watch?v=REPLACE_WITH_ACTUAL_SOTU_VIDEO_ID",
+      "note": "State of the Union 2026 - replace with real C-SPAN or White House YouTube URL when available"
+    },
+    {
+      "date": "2025-02-07",
+      "source": "sotu_2025",
+      "transcript_url": "https://www.whitehouse.gov/state-of-the-union-2025/",
+      "note": "Example: use official or AP/CBS transcript URL when available"
+    }
+  ]
+}

@@ -44,13 +44,17 @@ if edges_df.empty and prob_df.empty:
 # Top edges
 st.header("Top edges (model prob − market prob)")
 if not edges_df.empty:
-    edges_sorted = edges_df.sort_values("edge", ascending=False)
-    edges_sorted["edge_pct"] = (edges_sorted["edge"] * 100).round(1).astype(str) + "%"
-    st.dataframe(
-        edges_sorted[["word", "market_probability", "model_probability", "edge", "edge_pct"]].head(20),
-        use_container_width=True,
-        hide_index=True,
-    )
+    edges_sorted = edges_df.sort_values("edge", ascending=False).head(20)
+    # Build display table with explicit column order so edge vs model_probability never mix
+    edge_pct_vals = (edges_sorted["edge"] * 100).round(1)
+    display_df = pd.DataFrame({
+        "word": edges_sorted["word"].values,
+        "market_probability": edges_sorted["market_probability"].values,
+        "model_probability": edges_sorted["model_probability"].values,
+        "edge": edges_sorted["edge"].values,
+        "edge_pct": edge_pct_vals.apply(lambda x: f"{x:+.1f}%").values,
+    })
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
     if "flagged" in edges_sorted.columns:
         flagged = edges_sorted[edges_sorted["flagged"]]
         if not flagged.empty:

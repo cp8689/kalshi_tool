@@ -12,16 +12,41 @@ Estimate **P(word appears in next speech)** using rolling 4-week transcript stat
 
 ## Quick start
 
-Run from the **repo root** (this directory):
+Run everything from the **repo root** (this directory).
+
+### 1. Setup (once)
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate    # macOS/Linux; Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -c "import nltk; nltk.download('stopwords')"   # once
-python main.py
-python main.py --dashboard
 ```
 
-The repo includes sample transcripts, news, and Kalshi market data so the pipeline and dashboard work immediately.
+Without a venv, use `pip install -r requirements.txt` and `python` if they’re on your PATH.
+
+### 2. Commands
+
+| Command | What it does |
+|--------|----------------|
+| `python main.py` | Run the full pipeline (ingest → weekly model → narrative → Kalshi → edges) and write `output/*.csv`. |
+| `python main.py --run-pipeline` | Same as above. |
+| `python main.py --dashboard` | Launch the Streamlit dashboard (top edges, word probabilities, weekly trends). |
+| `python main.py --config /path/to/config.json` | Run the pipeline with a custom config file. |
+| `python scripts/fetch_transcripts.py` | Clear existing transcript/news/market data (keeps samples), then fetch transcripts (White House briefings, YouTube, transcript URLs from `data/transcript_sources.json`). |
+| `python scripts/fetch_transcripts.py --dry-run` | List what would be fetched; no files deleted or written. |
+| `python scripts/fetch_transcripts.py --output-dir path/to/dir` | Write fetched transcripts to a different directory. |
+| `streamlit run scripts/dashboard.py` | Same as `python main.py --dashboard` (run dashboard directly). |
+
+### 3. Typical workflow
+
+```bash
+python scripts/fetch_transcripts.py   # fetch latest transcripts (clears then downloads)
+python main.py                        # run pipeline, update model and output CSVs
+python main.py --dashboard            # open dashboard (or: streamlit run scripts/dashboard.py)
+```
+
+The repo includes sample transcripts, news, and Kalshi market data so the pipeline and dashboard work without fetching.
 
 ---
 
@@ -64,15 +89,21 @@ kalshi_tool/                    # repo root
 
 From the **repo root**:
 
-```bash
-pip install -r requirements.txt
-```
+1. **Create and activate a venv** (so `pip` and `python` point to the venv):
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate   # macOS/Linux; on Windows: .venv\Scripts\activate
+   ```
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **NLTK stopwords** (once):
+   ```bash
+   python -c "import nltk; nltk.download('stopwords')"
+   ```
 
-If you use NLTK stopwords (default), download them once:
-
-```bash
-python -c "import nltk; nltk.download('stopwords')"
-```
+If you see **`zsh: command not found: pip`**, the venv is not activated. Run `source .venv/bin/activate` from the repo root, then run `pip` again. Do not run `activate_this.py` or `activate.bat` as a script—use `source .venv/bin/activate` so the shell picks up the venv.
 
 ---
 
@@ -87,7 +118,7 @@ Edit **`config.json`** at the repo root.
 | **`recency_weights`** | Four weights for the last 4 weeks, most recent first. Must sum to 1. |
 | **`news_multipliers`** | Narrative adjustment by mention count in last 48h: `"0"`, `"1"`, `"3"`, `"5"` (5+ mentions). |
 | **`edge_threshold`** | Flag opportunities when edge > this value (default `0.10`). |
-| **`reference_date`** | (Optional) `YYYY-MM-DD` for "today" when defining the last 4 weeks. Omit to use current date. |
+| **`reference_date`** | (Optional) `YYYY-MM-DD` for "today" when defining the last 4 weeks. Omit to use current date. **Must be on or after your latest transcript date**—otherwise those transcripts fall outside the 4-week window and won't affect `model_probability`. |
 
 **Example `config.json`:**
 
@@ -163,9 +194,25 @@ When you run `python main.py` from the repo root:
 
 1. **Manual files**: Put transcript text files in **`data/transcripts/`** with names like `YYYY-MM-DD_source.txt` (e.g. `2025-02-15_rally.txt`). The date prefix is required; the rest is the source label.
 2. **JSON**: You can also add JSON files with `date`, `text`, and optional `source`/`body`.
-3. **YouTube**: Save captions as text or JSON in the same folder with a date in the filename, or use a script (e.g. yt-dlp) and drop the result into `data/transcripts/`.
+3. **YouTube**: Save captions as text or JSON in the same folder with a date in the filename, or use the fetch script below.
 
-After adding files, run the pipeline; it regenerates **`data/transcripts/processed_transcripts.json`**.
+**Fetching Kalshi-relevant transcripts (State of the Union / major speeches / press)**  
+Kalshi’s word markets refer to events like “next major speech” and State of the Union. You can fetch those transcripts with:
+
+```bash
+python scripts/fetch_transcripts.py
+```
+
+The script **deletes existing data** before fetching: all transcript `.txt` and `processed_transcripts.json` in `data/transcripts/`; all news `.json` and `processed_news.json` in `data/news/` (keeps `sample_*.json`, `example*.json`); all market `.json`/`.csv` in `data/markets/` (keeps `kalshi_sample.json`, `*example*`). Each run then fetches transcripts only (news/markets are cleared; add or fetch those separately if needed). Use `--dry-run` to preview without deleting or writing.
+
+- **Config**: Edit **`data/transcript_sources.json`**.
+  - **Per-item sources**: In `sources`, each entry needs `date` (`YYYY-MM-DD`), `source` (label), and either **`youtube_url`** or **`transcript_url`**.
+  - **White House Briefings & Statements**: Set **`whitehouse_briefings`** to scrape [whitehouse.gov/briefings-statements](https://www.whitehouse.gov/briefings-statements/). Use `"url": "https://www.whitehouse.gov/briefings-statements/"` and optionally `"max_items": 25`. The script fetches the listing, then each linked statement/remarks page, and saves them as `YYYY-MM-DD_slug.txt` in `data/transcripts/`.
+- **YouTube**: Uses **yt-dlp** (install separately: `pip install yt-dlp` or `brew install yt-dlp`) to download captions and save as `YYYY-MM-DD_source.txt` in `data/transcripts/`.
+- **Transcript URL**: Fetches the page with `requests` and extracts main text (e.g. official or news SOTU transcript pages).
+- **Dry run**: `python scripts/fetch_transcripts.py --dry-run` to list what would be fetched without writing files.
+
+After adding or fetching files, **run the full pipeline** so the model updates: `python main.py`. That regenerates **`data/transcripts/processed_transcripts.json`** and recomputes weekly stats and **model_probability**. If you use **reference_date** in config, set it to a date on or after your newest transcript (e.g. **2026-03-08** if you have Feb–Mar 2026 White House briefings); otherwise those transcripts are excluded from the 4-week window.
 
 ### Adding news
 
@@ -279,6 +326,8 @@ From **`requirements.txt`**:
 - **beautifulsoup4** — Optional: parse HTML in news files.
 - **streamlit** — Dashboard.
 
+Optional for **fetching transcripts** from YouTube: **yt-dlp** (`pip install yt-dlp` or `brew install yt-dlp`).
+
 Install: `pip install -r requirements.txt`
 
 ---
@@ -294,3 +343,14 @@ The codebase is structured to support:
 - **Trading alerts**: Stub for reading `kalshi_edges.csv` and sending email/webhook when edge exceeds a threshold.
 
 See **`scripts/schemas.py`** for data contracts and extension points.
+
+---
+
+## Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| **`zsh: command not found: pip`** | Activate the venv first: `source .venv/bin/activate` (from repo root). Then `pip` and `python` use the venv. |
+| **`permission denied: .../activate_this.py`** or **`activate.bat`** | Don’t run those as scripts. Use `source .venv/bin/activate` (macOS/Linux) so your current shell gets the venv’s PATH. |
+| **`python: command not found`** | Use `python3` to create the venv and run the app, or after activating the venv use `python`. |
+| **`Could not find platform independent libraries`** / **`No module named 'encodings'`** | The venv is broken (base Python moved or venv recreated with a different interpreter). Recreate it: `deactivate 2>/dev/null; rm -rf .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`. Then run NLTK download with the venv’s Python: `python -c "import nltk; nltk.download('stopwords')"`. |

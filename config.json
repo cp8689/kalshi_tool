@@ -1,5 +1,5 @@
 {
-  "reference_date": "2025-03-08",
+  "reference_date": "2026-03-08",
   "tracked_words": [
     "border",
     "china",
@@ -10,7 +10,16 @@
     "inflation",
     "energy",
     "biden",
-    "military"
+    "military",
+    "communist",
+    "golden dome",
+    "newscum",
+    "thug",
+    "space force",
+    "epstein",
+    "nobel",
+    "tds",
+    "trump derangement syndrome"
   ],
   "stopwords": [],
   "recency_weights": [0.1, 0.2, 0.3, 0.4],
@@ -20,5 +29,5 @@
     "3": 1.4,
     "5": 1.8
   },
-  "edge_threshold": 0.10
+  "edge_threshold": 0.1
 }
