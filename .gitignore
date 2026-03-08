@@ -41,8 +41,24 @@ nltk_data/
 .DS_Store
 Thumbs.db
 
-# Project-specific (optional: uncomment to ignore generated output)
-# speech_word_market_model/output/*.csv
+# Fetched/generated data (keep only samples and examples)
+data/transcripts/*.txt
+!data/transcripts/2025-02-01_rally.txt
+!data/transcripts/2025-02-15_interview.txt
+!data/transcripts/2025-02-22_speech.txt
+data/transcripts/processed_transcripts.json
+
+data/news/*.json
+!data/news/sample_*.json
+!data/news/example*.json
+data/news/processed_news.json
+
+data/markets/*.json
+data/markets/*.csv
+!data/markets/kalshi_sample.json
+!data/markets/*example*
+
+output/*.csv
 
 # Local config overrides (if you add .env or local configs)
 .env
