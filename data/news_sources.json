@@ -1,0 +1,25 @@
+{
+  "description": "RSS/Atom feed URLs for approved news sources. Past week saved to data/news/. max_news_items caps total articles per fetch (default 10).",
+  "past_days": 7,
+  "max_news_items": 10,
+  "rss_bridge_base_url": "https://rss-bridge.org/bridge01",
+  "feeds": [
+    { "name": "npr", "url": "https://feeds.npr.org/1001/rss.xml", "label": "NPR" },
+    { "name": "nbc", "url": "https://feeds.nbcnews.com/nbcnews/public/news", "label": "NBC News" },
+    { "name": "politico", "url": "https://rss.politico.com/politics-news.xml", "label": "Politico" },
+    { "name": "cnn", "url": "http://rss.cnn.com/rss/cnn_topstories.rss", "label": "CNN" },
+    { "name": "axios", "url": "https://api.axios.com/feed/", "label": "Axios" },
+    {
+      "name": "reuters",
+      "label": "Reuters (via RSS-Bridge)",
+      "rss_bridge": {
+        "bridge": "ReutersBridge",
+        "format": "Atom",
+        "feed": "home/topnews"
+      }
+    }
+  ],
+  "_feeds_often_blocked_direct": [
+    { "name": "ap", "url": "https://rss.apnews.com/rss/top-news", "label": "AP News (DNS may fail)" }
+  ]
+}

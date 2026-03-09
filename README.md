@@ -33,17 +33,19 @@ Without a venv, use `pip install -r requirements.txt` and `python` if they’re 
 | `python main.py --run-pipeline` | Same as above. |
 | `python main.py --dashboard` | Launch the Streamlit dashboard (top edges, word probabilities, weekly trends). |
 | `python main.py --config /path/to/config.json` | Run the pipeline with a custom config file. |
-| `python scripts/fetch_transcripts.py` | Clear existing transcript/news/market data (keeps samples), then fetch transcripts (White House briefings, YouTube, transcript URLs from `data/transcript_sources.json`). |
+| **`python main.py --fetch-all`** | **Single command**: fetch transcripts (White House, YouTube, transcript URLs) and **10 news articles** (from `data/news_sources.json`). Clears then repopulates transcripts and news. |
+| `python scripts/fetch_transcripts.py` | Same as `--fetch-all` (transcripts + news, 10 articles by default). Override with `max_news_items` in `data/news_sources.json`. |
 | `python scripts/fetch_transcripts.py --dry-run` | List what would be fetched; no files deleted or written. |
+| `python scripts/parse_news.py [--fetch-bodies] [--max N]` | Fetch full article body from each news item's URL and update `data/news/*.json` for analysis. Optional; enable with `--fetch-bodies` or `config.parse_news.fetch_article_body`. |
 | `python scripts/fetch_transcripts.py --output-dir path/to/dir` | Write fetched transcripts to a different directory. |
 | `streamlit run scripts/dashboard.py` | Same as `python main.py --dashboard` (run dashboard directly). |
 
 ### 3. Typical workflow
 
 ```bash
-python scripts/fetch_transcripts.py   # fetch latest transcripts (clears then downloads)
-python main.py                        # run pipeline, update model and output CSVs
-python main.py --dashboard            # open dashboard (or: streamlit run scripts/dashboard.py)
+python main.py --fetch-all   # fetch transcripts + 10 news articles (one command)
+python main.py               # run pipeline, update model and output CSVs
+python main.py --dashboard   # open dashboard (or: streamlit run scripts/dashboard.py)
 ```
 
 The repo includes sample transcripts, news, and Kalshi market data so the pipeline and dashboard work without fetching.
@@ -116,7 +118,8 @@ Edit **`config.json`** at the repo root.
 | **`tracked_words`** | List of words to predict (e.g. border, china, tariff). |
 | **`stopwords`** | Extra stopwords to remove when tokenizing (optional; NLTK English stopwords are always included). |
 | **`recency_weights`** | Four weights for the last 4 weeks, most recent first. Must sum to 1. |
-| **`news_multipliers`** | Narrative adjustment by mention count in last 48h: `"0"`, `"1"`, `"3"`, `"5"` (5+ mentions). |
+| **`news_multipliers`** | Narrative adjustment by mention count in recent news: `"0"`, `"1"`, `"3"`, `"5"` (5+ mentions). |
+| **`news_days`** | Number of days of news used to adjust current-week prediction (default: 3). News from the last 3 days is combined and word mentions apply the multipliers above. |
 | **`edge_threshold`** | Flag opportunities when edge > this value (default `0.10`). |
 | **`reference_date`** | (Optional) `YYYY-MM-DD` for "today" when defining the last 4 weeks. Omit to use current date. **Must be on or after your latest transcript date**—otherwise those transcripts fall outside the 4-week window and won't affect `model_probability`. |
 
@@ -207,16 +210,26 @@ The script **deletes existing data** before fetching: all transcript `.txt` and 
 
 - **Config**: Edit **`data/transcript_sources.json`**.
   - **Per-item sources**: In `sources`, each entry needs `date` (`YYYY-MM-DD`), `source` (label), and either **`youtube_url`** or **`transcript_url`**.
-  - **White House Briefings & Statements**: Set **`whitehouse_briefings`** to scrape [whitehouse.gov/briefings-statements](https://www.whitehouse.gov/briefings-statements/). Use `"url": "https://www.whitehouse.gov/briefings-statements/"` and optionally `"max_items": 25`. The script fetches the listing, then each linked statement/remarks page, and saves them as `YYYY-MM-DD_slug.txt` in `data/transcripts/`.
+  - **White House Briefings & Statements**: Set **`whitehouse_briefings`** to scrape [whitehouse.gov/briefings-statements](https://www.whitehouse.gov/briefings-statements/). Use `"url": "https://www.whitehouse.gov/briefings-statements/"` and optionally `"max_items": 25`, `"max_pages": 5`. The script fetches the listing (last 4 weeks), then each linked statement/remarks page, and saves them as `YYYY-MM-DD_slug.txt` in `data/transcripts/`.
+- **Tier A (resolution-grade) whitelist**: Only **Tier A** sources are ingested into the transcript store so it stays Kalshi-safe. The allowed list is in **`data/source_whitelist.json`**: official (e.g. whitehouse.gov, official campaign, official YouTube) and the 16 approved media outlets (NYT, AP, Bloomberg, Reuters, Axios, Politico, Semafor, The Information, WaPo, WSJ, ABC, CBS, CNN, Fox, MSNBC, NBC). Any `youtube_url` or `transcript_url` in `sources` whose domain is not on the whitelist is skipped. Tier B (broader news, unofficial clips, etc.) is for forecasting only and is not used as resolution-grade input.
 - **YouTube**: Uses **yt-dlp** (install separately: `pip install yt-dlp` or `brew install yt-dlp`) to download captions and save as `YYYY-MM-DD_source.txt` in `data/transcripts/`.
 - **Transcript URL**: Fetches the page with `requests` and extracts main text (e.g. official or news SOTU transcript pages).
 - **Dry run**: `python scripts/fetch_transcripts.py --dry-run` to list what would be fetched without writing files.
+- **News**: Fetches from **`data/news_sources.json`** (direct **`url`**s and/or **RSS-Bridge**). Capped at **10 articles** per run by default (**`max_news_items`** in that file). Items from the past 7 days are saved to `data/news/` and used by the narrative model (last 3 days).
 
 After adding or fetching files, **run the full pipeline** so the model updates: `python main.py`. That regenerates **`data/transcripts/processed_transcripts.json`** and recomputes weekly stats and **model_probability**. If you use **reference_date** in config, set it to a date on or after your newest transcript (e.g. **2026-03-08** if you have Feb–Mar 2026 White House briefings); otherwise those transcripts are excluded from the 4-week window.
 
 ### Adding news
 
-Put news items in **`data/news/`** as JSON with `date` (`YYYY-MM-DD`) and `text` (or `body`/`content`). The narrative model uses only items from the **last 48 hours** (by date).
+Put news items in **`data/news/`** as JSON with `date` (`YYYY-MM-DD`) and `text` (or `body`/`content`). The narrative model uses items from the **last N days** (config `news_days`, default 3).
+
+**Parsing news for analysis**  
+Fetched news files include an **`url`** when the feed provides a link. To pull full article body into each file for better analysis:
+
+1. Set **`config.json`** → **`parse_news.fetch_article_body": true`** (and optionally **`max_articles_to_parse`**, default 50).
+2. Run **`python scripts/parse_news.py`** after fetching (or run **`python main.py --run-pipeline`**; the pipeline runs parse_news before ingest when enabled).
+
+Parse_news fetches each article URL, extracts main content (article/main/body), and updates the news JSON **`text`** and sets **`body_parsed": true`**. **Ingest** then reads all news, **normalizes text** (strip HTML, collapse whitespace), and writes **`processed_news.json`** for the narrative model.
 
 ### Adding Kalshi market data
 
@@ -354,3 +367,5 @@ See **`scripts/schemas.py`** for data contracts and extension points.
 | **`permission denied: .../activate_this.py`** or **`activate.bat`** | Don’t run those as scripts. Use `source .venv/bin/activate` (macOS/Linux) so your current shell gets the venv’s PATH. |
 | **`python: command not found`** | Use `python3` to create the venv and run the app, or after activating the venv use `python`. |
 | **`Could not find platform independent libraries`** / **`No module named 'encodings'`** | The venv is broken (base Python moved or venv recreated with a different interpreter). Recreate it: `deactivate 2>/dev/null; rm -rf .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`. Then run NLTK download with the venv’s Python: `python -c "import nltk; nltk.download('stopwords')"`. |
+| **`ProxyError`** / **`403 Forbidden`** when fetching news or White House | Your network or a proxy is blocking outbound requests. The script bypasses proxy by default. If it still fails, try `NO_PROXY='*' python scripts/fetch_transcripts.py` or another network. News feed failures do not cause the script to exit with an error. |
+| **`None ap (news) -> fail`** / **`None reuters (news) -> fail`** / **`None cnn (news) -> fail`** | **Reuters**: 401 Forbidden (outlet blocks scripted access). **AP**: Name resolution/DNS failure for `rss.apnews.com`. **CNN**: SSL handshake errors over HTTPS—use `http://rss.cnn.com/rss/cnn_topstories.rss` in `data/news_sources.json`. AP and Reuters are omitted from the default feed list; NPR, NBC, Politico, CNN (HTTP), Axios are used. Re-add AP/Reuters from `_feeds_often_blocked` in that file if your network allows. |

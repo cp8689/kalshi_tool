@@ -1,5 +1,6 @@
 """
-Narrative signal: count tracked word mentions in news from last 48 hours, apply multiplier, cap P at 0.95.
+Narrative signal: count tracked word mentions in news from the last N days, apply multiplier, cap P at 0.95.
+Used to adjust current-week prediction using recent news (default: last 3 days).
 """
 from __future__ import annotations
 
@@ -31,29 +32,34 @@ def apply_narrative_adjustment(
     news_multipliers: dict,
     stopwords: Optional[List[str]] = None,
     reference_time: Optional[datetime] = None,
+    news_days: int = 3,
     cap: float = 0.95,
 ) -> pd.DataFrame:
     """
-    For each word: count mentions in news from last 48h, get multiplier, P_adjusted = min(cap, P_baseline * multiplier).
+    For each word: count mentions in news from the last `news_days` days, get multiplier,
+    P_adjusted = min(cap, P_baseline * multiplier). This adjusts the current-week prediction using recent news.
     baseline_df must have columns: word, model_probability. Returns same frame with model_probability updated.
     """
     stopwords = stopwords or []
     ref = reference_time or datetime.utcnow()
     if ref.tzinfo:
         ref = ref.replace(tzinfo=None)
-    cutoff = ref - timedelta(hours=48)
+    ref_date = ref.date() if hasattr(ref, "date") else ref
+    cutoff_date = ref_date - timedelta(days=news_days)
     path = Path(processed_news_path)
     if not path.exists():
         return baseline_df.copy()
     with open(path, encoding="utf-8") as f:
         news = json.load(f)
-    # Filter to last 48h by date (we only have date, so treat as start of day)
+    # Filter to last N days by date (news items with date >= cutoff_date)
     recent = []
     for item in news:
         try:
             d = item.get("date", "")
-            dt = datetime.strptime(d[:10], "%Y-%m-%d") if len(d) >= 10 else None
-            if dt and dt >= cutoff:
+            if len(d) < 10:
+                continue
+            item_date = datetime.strptime(d[:10], "%Y-%m-%d").date()
+            if item_date >= cutoff_date:
                 recent.append(item.get("text", ""))
         except Exception:
             continue

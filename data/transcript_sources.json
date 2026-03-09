@@ -1,8 +1,11 @@
 {
-  "description": "Sources for transcripts that match Kalshi's 'major speech' / State of the Union style markets. Add youtube_url or transcript_url with date and source.",
+  "description": "Tier A (resolution-grade) sources only: official speaker + approved media. Feeds Kalshi-safe transcript store. See data/source_whitelist.json for allowed domains. Add youtube_url or transcript_url with date and source. News feeds: data/news_sources.json.",
+  "source_whitelist": "data/source_whitelist.json",
+  "news_sources": "data/news_sources.json",
   "whitehouse_briefings": {
     "url": "https://www.whitehouse.gov/briefings-statements/",
-    "max_items": 25
+    "max_items": 200,
+    "max_pages": 5
   },
   "sources": [
     {

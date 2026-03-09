@@ -4,9 +4,11 @@ For daily execution, use cron: 0 9 * * * cd /path/to/speech_word_market_model &&
 """
 import json
 import os
+from pathlib import Path
 
 from scripts.ingest_transcripts import ingest_transcripts
 from scripts.ingest_news import ingest_news
+from scripts.parse_news import parse_news as run_parse_news
 from scripts.weekly_stats import compute_weekly_probabilities
 from scripts.probability_model import compute_baseline_probabilities
 from scripts.narrative_model import apply_narrative_adjustment
@@ -29,6 +31,7 @@ def run_pipeline(config_path: str, base_dir: str) -> None:
     tracked_words = config.get("tracked_words", [])
     recency_weights = config.get("recency_weights", [0.1, 0.2, 0.3, 0.4])
     news_multipliers = config.get("news_multipliers", {"0": 0.9, "1": 1.1, "3": 1.4, "5": 1.8})
+    news_days = int(config.get("news_days", 3))
     edge_threshold = config.get("edge_threshold", 0.10)
     stopwords = config.get("stopwords", [])
 
@@ -42,19 +45,36 @@ def run_pipeline(config_path: str, base_dir: str) -> None:
     # 3. Baseline probability model
     baseline_df = compute_baseline_probabilities(weekly_df, recency_weights)
 
-    # 4. Ingest news
+    # 4. Parse news (fetch article bodies from URLs into news files for analysis, if enabled)
+    parse_cfg = config.get("parse_news", config.get("news_parsing", {}))
+    if isinstance(parse_cfg, dict) and parse_cfg.get("fetch_article_body"):
+        run_parse_news(
+            news_dir=Path(news_dir),
+            config_path=Path(config_path),
+            fetch_article_body=True,
+            max_articles=int(parse_cfg.get("max_articles_to_parse", 50)),
+            skip_existing=True,
+        )
+
+    # 5. Ingest news (reads data/news/*.json, normalizes text, writes processed_news.json)
     ingest_news(news_dir, processed_news)
 
-    # 5. Narrative adjustment
+    # 6. Narrative adjustment (last N days of news to predict current week)
+    reference_dt = None
+    if reference_date:
+        from datetime import datetime
+        reference_dt = datetime.fromisoformat(reference_date.replace("Z", "+00:00")) if isinstance(reference_date, str) else reference_date
     final_prob_df = apply_narrative_adjustment(
         baseline_df,
         processed_news,
         tracked_words,
         news_multipliers,
         stopwords=stopwords,
+        reference_time=reference_dt,
+        news_days=news_days,
     )
 
-    # 6. Word probabilities CSV: word, week1..week4, model_probability (optional baseline)
+    # 7. Word probabilities CSV: word, week1..week4, model_probability (optional baseline)
     prob_out = weekly_df.merge(
         final_prob_df[["word", "model_probability"]],
         on="word",
@@ -69,7 +89,7 @@ def run_pipeline(config_path: str, base_dir: str) -> None:
     prob_path = os.path.join(output_dir, "word_probabilities.csv")
     prob_out.to_csv(prob_path, index=False)
 
-    # 7. Ingest Kalshi markets
+    # 8. Ingest Kalshi markets
     market_paths = [
         os.path.join(markets_dir, f)
         for f in os.listdir(markets_dir)
@@ -79,7 +99,7 @@ def run_pipeline(config_path: str, base_dir: str) -> None:
         market_paths = [os.path.join(markets_dir, "kalshi_sample.json")]
     market_df = parse_kalshi_markets(market_paths, tracked_words)
 
-    # 8. Edge detection
+    # 9. Edge detection
     edges_df = compute_edges(final_prob_df, market_df, edge_threshold=edge_threshold)
     edges_path = os.path.join(output_dir, "kalshi_edges.csv")
     edges_df.to_csv(edges_path, index=False)

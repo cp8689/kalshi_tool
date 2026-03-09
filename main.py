@@ -25,6 +25,7 @@ def load_config(config_path: Optional[str] = None) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Speech Word Market Model")
+    parser.add_argument("--fetch-all", action="store_true", help="Fetch transcripts and news (10 articles), then exit")
     parser.add_argument("--run-pipeline", action="store_true", help="Run full pipeline")
     parser.add_argument("--dashboard", action="store_true", help="Launch Streamlit dashboard")
     parser.add_argument("--config", default=None, help="Path to config.json")
@@ -35,9 +36,18 @@ def main() -> int:
         dashboard_script = os.path.join(PROJECT_ROOT, "scripts", "dashboard.py")
         return subprocess.call([sys.executable, "-m", "streamlit", "run", dashboard_script, "--server.headless", "true"], cwd=PROJECT_ROOT)
 
+    if args.fetch_all:
+        from pathlib import Path
+        from scripts.fetch_transcripts import fetch_transcripts, DEFAULT_SOURCES_PATH
+        sources_path = Path(args.config) if args.config else DEFAULT_SOURCES_PATH
+        results = fetch_transcripts(config_path=sources_path, dry_run=False)
+        for r in results:
+            status = "ok" if r["success"] is True else ("skip" if r["success"] is None else "fail")
+            print(f"  {r['date']} {r['source']} ({r['method']}) -> {status}" + (f"  {r['path']}" if r.get("path") else ""))
+        failed = sum(1 for r in results if r["success"] is False and r.get("method") in ("youtube", "url", "whitehouse"))
+        return 1 if failed else 0
+
     # Default: run pipeline
-    config = load_config(args.config)
-    # Pipeline will be wired in when scheduler/edge_detector are ready
     from scripts.scheduler import run_pipeline
     run_pipeline(args.config or os.path.join(PROJECT_ROOT, "config.json"), PROJECT_ROOT)
     return 0

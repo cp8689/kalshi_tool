@@ -1,6 +1,6 @@
 """
 Ingest news from data/news/: JSON/HTML/TXT with date and body. Save processed_news.json.
-Local files only in v1 (no live scraping).
+Normalizes text for analysis (strip HTML, collapse whitespace). Local files only in v1 (no live scraping).
 """
 from __future__ import annotations
 
@@ -12,6 +12,21 @@ from datetime import datetime
 from typing import Optional
 
 DATE_PATTERN = re.compile(r"(\d{4}-\d{2}-\d{2})")
+
+
+def _normalize_text_for_analysis(raw: str) -> str:
+    """Strip HTML, collapse whitespace, and trim for use in narrative/analysis."""
+    if not raw or not isinstance(raw, str):
+        return ""
+    text = raw.strip()
+    if "<" in text and ">" in text:
+        try:
+            from bs4 import BeautifulSoup
+            text = BeautifulSoup(text, "html.parser").get_text(separator=" ")
+        except Exception:
+            text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
 
 def _parse_date(s: str) -> Optional[str]:
@@ -68,7 +83,9 @@ def ingest_news(news_dir: str, output_path: str) -> list[dict]:
             except Exception:
                 continue
         if date and text:
-            records.append({"date": date, "source": source, "text": text})
+            text = _normalize_text_for_analysis(text)
+            if text:
+                records.append({"date": date, "source": source, "text": text})
     records.sort(key=lambda r: r["date"], reverse=True)
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)

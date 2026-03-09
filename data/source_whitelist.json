@@ -1,0 +1,50 @@
+{
+  "description": "Kalshi resolution-grade (Tier A) vs predictive-only (Tier B) source lists. Only Tier A feeds the Kalshi-safe transcript store.",
+  "tier_a_resolution_grade": {
+    "official": [
+      "whitehouse.gov",
+      "youtube.com"
+    ],
+    "official_note": "Campaign/official government domains and YouTube official channels only. Add campaign or press-office domains here when needed.",
+    "approved_media": [
+      "nytimes.com",
+      "apnews.com",
+      "bloomberg.com",
+      "reuters.com",
+      "axios.com",
+      "politico.com",
+      "semafor.com",
+      "theinformation.com",
+      "washingtonpost.com",
+      "wsj.com",
+      "abcnews.go.com",
+      "cbsnews.com",
+      "cnn.com",
+      "foxnews.com",
+      "msnbc.com",
+      "nbcnews.com"
+    ]
+  },
+  "tier_b_predictive_only": {
+    "description": "Use for forecasting only; never for Kalshi resolution. Broader news, social, local TV, unofficial clips, third-party YouTube, etc."
+  },
+  "content_types_we_parse": [
+    "full transcripts",
+    "liveblogs with direct quotes",
+    "article text containing direct quotes",
+    "video pages with captions/transcripts",
+    "official event coverage pages",
+    "breaking-news writeups quoting the speaker verbatim"
+  ],
+  "excluded_from_resolution_grade": [
+    "random YouTube uploads",
+    "attendee videos",
+    "local news not on the approved list",
+    "podcasts or clip accounts",
+    "Twitter/X reposts from third parties",
+    "quote aggregators",
+    "blogs/Substacks/Reddit",
+    "AI transcripts from unofficial recordings",
+    "secondary databases that paraphrase rather than quote"
+  ]
+}

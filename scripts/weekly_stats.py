@@ -38,12 +38,13 @@ def compute_weekly_probabilities(
         ref = ref.replace(tzinfo=None)
 
     path = Path(transcripts_path)
+    empty_cols = ["word", "week1", "week2", "week3", "week4", "week1_count", "week2_count", "week3_count", "week4_count"]
     if not path.exists():
-        return pd.DataFrame(columns=["word", "week1", "week2", "week3", "week4"])
+        return pd.DataFrame(columns=empty_cols)
     with open(path, encoding="utf-8") as f:
         records = json.load(f)
     if not records:
-        return pd.DataFrame(columns=["word", "week1", "week2", "week3", "week4"])
+        return pd.DataFrame(columns=empty_cols)
 
     tracked_lower = [w.lower() for w in tracked_words]
     week_ranges = [_week_bounds_dates(ref, i) for i in range(4)]
@@ -76,10 +77,16 @@ def compute_weekly_probabilities(
     rows = []
     for word in tracked_lower:
         week_probs = []
+        week_counts = []
         for i in range(4):
             total = total_per_week[i]
             count = word_count_per_week[i][word]
+            week_counts.append(count)
             p = count / total if total else 0.0
             week_probs.append(round(p, 4))
-        rows.append({"word": word, "week1": week_probs[0], "week2": week_probs[1], "week3": week_probs[2], "week4": week_probs[3]})
+        rows.append({
+            "word": word,
+            "week1": week_probs[0], "week2": week_probs[1], "week3": week_probs[2], "week4": week_probs[3],
+            "week1_count": week_counts[0], "week2_count": week_counts[1], "week3_count": week_counts[2], "week4_count": week_counts[3],
+        })
     return pd.DataFrame(rows)
